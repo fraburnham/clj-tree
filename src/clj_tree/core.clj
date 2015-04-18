@@ -6,28 +6,46 @@
 
 (defstruct node :parent :children :data :index)
 
-(defn- update-node! [index key val]
+(defn fresh-tree
+  "Resets the private tree values.
+  Mostly for testing."
+  []
+  (reset! node-array (object-array 10))
+  (reset! num-nodes 0))
+
+(defn- update-node!
+  "Update node at index's key with val"
+  [index key val]
   (swap! (aget @node-array index) assoc key val))
 
-(defn- resize-array! [arr]
+(defn- resize-array!
+  "Resize the node-array and keep existing nodes"
+  [arr]
   (let [len (* 2 (alength arr))
         ret (object-array len)]
     (doseq [i (range (alength arr))]
       (aset ret i (aget arr i)))
     ret))
 
-(defn node-by-index [index]
+(defn node
+  "Given an index return a node"
+  [index]
   (if (nil? index)
     nil
     (deref (aget @node-array index))))
 
-(defn add-child! [parent-index child-index]
-  (let [{children :children} (node-by-index parent-index)]
+(defn add-child!
+  "Mutate a parent's :children to include a new child"
+  [parent-index child-index]
+  (let [{children :children} (node parent-index)]
     (update-node! parent-index :children (conj children child-index))
     (update-node! child-index :parent parent-index)))
 
 ;index as nil for no parent. parent 0 is a valid parent
-(defn new-node! [parent-index child-indices data]
+(defn new-node!
+  "Create a new node in the tree. A parent index of nil
+  indicates that this is a root node."
+  [parent-index child-indices data]
   (if (> @num-nodes (* 0.7 (alength @node-array)))
     (swap! node-array resize-array!))
   (deref
@@ -38,29 +56,36 @@
         (add-child! parent-index i))
       (aget @node-array i))))
 
-(defn path-to-root [node]
-  (loop [n node
+(defn path-to-root
+  "Return the indices from the given node to the root node"
+  [node]
+  (loop [n (node node)
          r [(:index n)]]
-    (let [parent (node-by-index (:parent n))]
+    (let [parent (node (:parent n))]
       (if (nil? parent)
         r
         (recur parent (conj r (:index parent)))))))
 
-(defn dfs [root-index find-data]
+(defn dfs
+  "Depth first search from root-index looking for find-data"
+  [root-index find-data]
   (loop [node-stack [root-index]
          r nil]
     (if (empty? node-stack)
       r
-      (let [node (node-by-index (first node-stack))
+      (let [node (node (first node-stack))
             node-stack (rest node-stack)]
         (if (= find-data (:data node))
           (recur [] node)
           (recur (concat (:children node) node-stack) nil))))))
 
-(defn print-tree [root-index]
+(defn print-tree
+  "Print the tree or sub-tree starting from root-index"
+  [root-index]
   (loop [node-stack [root-index]]
     (if (not-empty node-stack)
-      (let [node (node-by-index (first node-stack))
+      (let [node (node (first node-stack))
             node-stack (rest node-stack)]
-        (println "Child:" (:index node) "Parent:" (:parent node))
+        (println "Child:" (:data node)
+                 "Parent:" (:data (node (:parent node))))
         (recur (concat (:children node) node-stack))))))
